@@ -52,6 +52,7 @@ volatile uint8_t res;
 #define AXIS_VALUE_VERIFY_CYCLES 3
 // current axis value (eg: 101.43)
 // negative values not allowed!
+// padded with zeroes
 char axisValue[AXIS_VALUE_SIZE];
 // checks if the axisValue was filled correctly
 // axisValue is correct when it passes a few
@@ -67,7 +68,8 @@ volatile unsigned int axisValueIndex = 0;
 void incrementAxisValueIndex();
 // adds a value and shifts the index
 void addAxisValue(char value);
-// checks if axisValue array has no more zeroes left in it
+// checks if axisValue elements have matched for
+// at least AXIS_VALUE_VERIFY_CYCLES cycles
 bool verifyAxisValue();
 // shifts the values while the dot is in the correct position
 void shiftAxisValue();
