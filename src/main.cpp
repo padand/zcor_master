@@ -69,6 +69,8 @@ void incrementAxisValueIndex();
 void addAxisValue(char value);
 // checks if axisValue array has no more zeroes left in it
 bool verifyAxisValue();
+// shifts the values while the dot is in the correct position
+void shiftAxisValue();
 
 //================================================= MAIN LOOP
 
@@ -92,6 +94,7 @@ void loop() {
     }
     delay(50);
   }
+  shiftAxisValue();
   Serial.println(axisValue);
   delay(2000);
 }
@@ -129,4 +132,14 @@ bool verifyAxisValue() {
     if(axisValueVerify[i]<AXIS_VALUE_VERIFY_CYCLES) hasCycles = true;
   }
   return !hasCycles;
+}
+
+void shiftAxisValue(){
+  while(axisValue[AXIS_VALUE_SIZE-AXIS_VALUE_DECIMALS-1] != '.'){
+    const char temp = axisValue[0];
+    for(unsigned int i=1; i<AXIS_VALUE_SIZE; i++) {
+      axisValue[i-1] = axisValue[i];
+    }
+    axisValue[AXIS_VALUE_SIZE-1] = temp;
+  }
 }
