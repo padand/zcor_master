@@ -49,15 +49,26 @@ volatile uint8_t res;
 
 #define AXIS_VALUE_SIZE 6
 #define AXIS_VALUE_DECIMALS 2
+#define AXIS_VALUE_VERIFY_CYCLES 3
 // current axis value (eg: 101.43)
 // negative values not allowed!
 char axisValue[AXIS_VALUE_SIZE];
+// checks if the axisValue was filled correctly
+// axisValue is correct when it passes a few
+// cycles (AXIS_VALUE_VERIFY_CYCLES) without changing
+unsigned int axisValueVerify[AXIS_VALUE_SIZE];
+// fills axisValue array with 0;
+// fills axisValueVerify array with 0;
+void initAxisValue();
 // current index for the axis value
 volatile unsigned int axisValueIndex = 0;
-// fills axisValue array with 0;
-void initAxisValue();
+// increments the index for the axis value,
+// making shure to start over if the end was reached
+void incrementAxisValueIndex();
+// adds a value and shifts the index
+void addAxisValue(char value);
 // checks if axisValue array has no more zeroes left in it
-bool isAxisValueFilled();
+bool verifyAxisValue();
 
 //================================================= MAIN LOOP
 
@@ -66,21 +77,23 @@ void loop() {
   bool isReady = false;
   while(!isReady) {
     res = transfer(10);
+    Serial.println(res);
     if(res==11) {
       isReady = true;
     }
     delay(100);
   }
   initAxisValue();
-  while(!isAxisValueFilled()) {
+  while(!verifyAxisValue()) {
     res = transfer(100);
+    Serial.println(res);
     if(res>100) {
-      axisValue[res/100] = res%100;
+      addAxisValue(res%100);
     }
     delay(50);
   }
   Serial.println(axisValue);
-  delay(500);
+  delay(2000);
 }
 
 //================================================= IMPLEMENTATIONS
@@ -88,13 +101,32 @@ void loop() {
 void initAxisValue() {
   for(unsigned int i=0; i<AXIS_VALUE_SIZE; i++) {
     axisValue[i] = 0;
+    axisValueVerify[i] = 0;
   }
 }
 
-bool isAxisValueFilled() {
-  bool hasZero = false;
-  for(unsigned int i=0; i<AXIS_VALUE_SIZE && !hasZero; i++) {
-    if(axisValue[i]==0) hasZero = true;
+void incrementAxisValueIndex() {
+  if(axisValueIndex < AXIS_VALUE_SIZE-1){
+    axisValueIndex++;
+  } else {
+    axisValueIndex=0;
   }
-  return hasZero;
+}
+
+void addAxisValue(char value) {
+  if(axisValue[axisValueIndex] != value) {
+    axisValue[axisValueIndex] = value;
+    axisValueVerify[axisValueIndex] = 0;
+  } else {
+    axisValueVerify[axisValueIndex] ++;
+  }
+  incrementAxisValueIndex();
+}
+
+bool verifyAxisValue() {
+  bool hasCycles = false;
+  for(unsigned int i=0; i<AXIS_VALUE_SIZE && !hasCycles; i++) {
+    if(axisValue[i]<AXIS_VALUE_VERIFY_CYCLES) hasCycles = true;
+  }
+  return !hasCycles;
 }
