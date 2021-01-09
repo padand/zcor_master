@@ -126,7 +126,7 @@ void addAxisValue(char value) {
 bool verifyAxisValue() {
   bool hasCycles = false;
   for(unsigned int i=0; i<AXIS_VALUE_SIZE && !hasCycles; i++) {
-    if(axisValue[i]<AXIS_VALUE_VERIFY_CYCLES) hasCycles = true;
+    if(axisValueVerify[i]<AXIS_VALUE_VERIFY_CYCLES) hasCycles = true;
   }
   return !hasCycles;
 }
