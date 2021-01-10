@@ -49,7 +49,7 @@ volatile uint8_t res;
 
 #define AXIS_VALUE_SIZE 6
 #define AXIS_VALUE_DECIMALS 2
-#define AXIS_VALUE_VERIFY_CYCLES 3
+#define AXIS_VALUE_VERIFY_CYCLES 2
 // current axis value (eg: 101.43)
 // negative values not allowed!
 // padded with zeroes
@@ -98,7 +98,8 @@ void loop() {
           delay(50);
         }
         shiftAxisValue();
-        Serial.println(axisValue);
+        float value = atof(axisValue);
+        Serial.println(value);
         delay(2000);
       } else {
         Serial.println("Position aquire timeout");
