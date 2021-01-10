@@ -85,6 +85,7 @@ void loop() {
     Serial.println("Reset ok");
     uint8_t requestPosition = 1;
     while(true) {
+      Serial.println("Request position");
       transfer(requestPosition);
       if(waitResponse(10,10 + requestPosition,5000)) {
         Serial.println("Position aquired");
@@ -95,7 +96,7 @@ void loop() {
           if(res>100) {
             addAxisValue(res%100);
           }
-          delay(50);
+          // delay(50);
         }
         shiftAxisValue();
         float value = atof(axisValue);
@@ -159,7 +160,7 @@ uint8_t waitResponse(uint8_t poll, uint8_t expected, unsigned long timeout) {
   timeout += millis();
   while(timeout > millis()) {
     res = transfer(poll);
-    Serial.println(res);
+    // Serial.println(res);
     if(res==expected) {
       return true;
     } else {
