@@ -73,32 +73,40 @@ void addAxisValue(char value);
 bool verifyAxisValue();
 // shifts the values while the dot is in the correct position
 void shiftAxisValue();
+// polls a reuest waiting for an expected response
+// return the response
+uint8_t waitResponse(uint8_t poll, uint8_t expected, unsigned long timeout);
 
 //================================================= MAIN LOOP
 
 void loop() {
-  transfer(1);
-  bool isReady = false;
-  while(!isReady) {
-    res = transfer(10);
-    Serial.println(res);
-    if(res==11) {
-      isReady = true;
+  transfer(0);
+  if(waitResponse(0,0,1000)) {
+    Serial.println("Reset ok");
+    uint8_t requestPosition = 1;
+    while(true) {
+      transfer(requestPosition);
+      if(waitResponse(10,10 + requestPosition,5000)) {
+        Serial.println("Position aquired");
+        initAxisValue();
+        while(!verifyAxisValue()) {
+          res = transfer(100);
+          //Serial.println(res);
+          if(res>100) {
+            addAxisValue(res%100);
+          }
+          delay(50);
+        }
+        shiftAxisValue();
+        Serial.println(axisValue);
+        delay(2000);
+      } else {
+        Serial.println("Position aquire timeout");
+      }
     }
-    delay(100);
+  } else {
+    Serial.println("Reset timeout");
   }
-  initAxisValue();
-  while(!verifyAxisValue()) {
-    res = transfer(100);
-    Serial.println(res);
-    if(res>100) {
-      addAxisValue(res%100);
-    }
-    delay(50);
-  }
-  shiftAxisValue();
-  Serial.println(axisValue);
-  delay(2000);
 }
 
 //================================================= IMPLEMENTATIONS
@@ -144,4 +152,18 @@ void shiftAxisValue(){
     }
     axisValue[AXIS_VALUE_SIZE-1] = temp;
   }
+}
+
+uint8_t waitResponse(uint8_t poll, uint8_t expected, unsigned long timeout) {
+  timeout += millis();
+  while(timeout > millis()) {
+    res = transfer(poll);
+    Serial.println(res);
+    if(res==expected) {
+      return true;
+    } else {
+      delay(50);
+    }
+  }
+  return false;
 }
