@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include <axis_value_parser.h>
+#include <zcor_protocol.h>
 
 #define BAUD 9600
 
@@ -39,17 +40,6 @@ uint8_t waitResponse(uint8_t poll, uint8_t expected, unsigned long timeout) {
   }
   return false;
 }
-
-//================================================= SPI PROTOCOL
-
-#define REQUEST_RESET 0
-#define RESPONSE_RESET 0
-#define REQUEST_POSITION_READ(POS) POS
-#define REQUEST_POSITION_STATUS 10
-#define RESPONSE_POSITION_STATUS_OK(POS) ((REQUEST_POSITION_STATUS) + (POS))
-#define REQUEST_POSITION_DIGIT 100
-#define RESPONSE_IS_POSITION_DIGIT(RES) (RES > 100)
-#define RESPONSE_POSITION_DIGIT(RES) (RES % 100)
 
 //================================================= SETUP
 
