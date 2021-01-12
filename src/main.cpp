@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <SPI.h>
+#include <axis_value_parser.h>
 
 #define BAUD 9600
 
@@ -19,6 +20,36 @@ inline uint8_t transfer(uint8_t data) {
   while (!TEST(SPSR, SPIF)) { /* nada */ }
   return SPDR;
 }
+
+// holds the transfer response
+volatile uint8_t res;
+
+// polls a reuest waiting for an expected response
+// return the response
+uint8_t waitResponse(uint8_t poll, uint8_t expected, unsigned long timeout) {
+  timeout += millis();
+  while(timeout > millis()) {
+    res = transfer(poll);
+    // Serial.println(res);
+    if(res==expected) {
+      return true;
+    } else {
+      delay(50);
+    }
+  }
+  return false;
+}
+
+//================================================= SPI PROTOCOL
+
+#define REQUEST_RESET 0
+#define RESPONSE_RESET 0
+#define REQUEST_POSITION_READ(POS) POS
+#define REQUEST_POSITION_STATUS 10
+#define RESPONSE_POSITION_STATUS_OK(POS) ((REQUEST_POSITION_STATUS) + (POS))
+#define REQUEST_POSITION_DIGIT 100
+#define RESPONSE_IS_POSITION_DIGIT(RES) (RES > 100)
+#define RESPONSE_POSITION_DIGIT(RES) (RES % 100)
 
 //================================================= SETUP
 
@@ -42,131 +73,38 @@ void setup() {
   Serial.println("start");
 }
 
-//================================================= SPI PROTOCOL
-
-// holds the transfer response
-volatile uint8_t res;
-
-#define AXIS_VALUE_SIZE 6
-#define AXIS_VALUE_DECIMALS 2
-#define AXIS_VALUE_VERIFY_CYCLES 2
-// current axis value (eg: 101.43)
-// negative values not allowed!
-// padded with zeroes
-char axisValue[AXIS_VALUE_SIZE];
-// checks if the axisValue was filled correctly
-// axisValue is correct when it passes a few
-// cycles (AXIS_VALUE_VERIFY_CYCLES) without changing
-unsigned int axisValueVerify[AXIS_VALUE_SIZE];
-// fills axisValue array with 0;
-// fills axisValueVerify array with 0;
-void initAxisValue();
-// current index for the axis value
-volatile unsigned int axisValueIndex = 0;
-// increments the index for the axis value,
-// making shure to start over if the end was reached
-void incrementAxisValueIndex();
-// adds a value and shifts the index
-void addAxisValue(char value);
-// checks if axisValue elements have matched for
-// at least AXIS_VALUE_VERIFY_CYCLES cycles
-bool verifyAxisValue();
-// shifts the values while the dot is in the correct position
-void shiftAxisValue();
-// polls a reuest waiting for an expected response
-// return the response
-uint8_t waitResponse(uint8_t poll, uint8_t expected, unsigned long timeout);
-
 //================================================= MAIN LOOP
+
+AxisValueParser avp = AxisValueParser();
 
 void loop() {
   Serial.println("Request reset");
-  transfer(0);
-  if(waitResponse(0,0,1000)) {
-    Serial.println("Reset ok");
-    uint8_t requestPosition = 1;
-    while(true) {
-      Serial.println("Request position");
-      transfer(requestPosition);
-      if(waitResponse(10,10 + requestPosition,5000)) {
-        Serial.println("Position aquired");
-        initAxisValue();
-        while(!verifyAxisValue()) {
-          res = transfer(100);
-          //Serial.println(res);
-          if(res>100) {
-            addAxisValue(res%100);
-          }
-          // delay(50);
-        }
-        shiftAxisValue();
-        float value = atof(axisValue);
-        Serial.println(value);
-        delay(2000);
-      } else {
-        Serial.println("Position aquire timeout");
-      }
-    }
-  } else {
+  if(!waitResponse(REQUEST_RESET,RESPONSE_RESET,1000)) {
     Serial.println("Reset timeout");
+    return;
   }
-}
-
-//================================================= IMPLEMENTATIONS
-
-void initAxisValue() {
-  for(unsigned int i=0; i<AXIS_VALUE_SIZE; i++) {
-    axisValue[i] = 0;
-    axisValueVerify[i] = 0;
-  }
-}
-
-void incrementAxisValueIndex() {
-  if(axisValueIndex < AXIS_VALUE_SIZE-1){
-    axisValueIndex++;
-  } else {
-    axisValueIndex=0;
-  }
-}
-
-void addAxisValue(char value) {
-  if(axisValue[axisValueIndex] != value) {
-    axisValue[axisValueIndex] = value;
-    axisValueVerify[axisValueIndex] = 0;
-  } else {
-    axisValueVerify[axisValueIndex] ++;
-  }
-  incrementAxisValueIndex();
-}
-
-bool verifyAxisValue() {
-  bool hasCycles = false;
-  for(unsigned int i=0; i<AXIS_VALUE_SIZE && !hasCycles; i++) {
-    if(axisValueVerify[i]<AXIS_VALUE_VERIFY_CYCLES) hasCycles = true;
-  }
-  return !hasCycles;
-}
-
-void shiftAxisValue(){
-  while(axisValue[AXIS_VALUE_SIZE-AXIS_VALUE_DECIMALS-1] != '.'){
-    const char temp = axisValue[0];
-    for(unsigned int i=1; i<AXIS_VALUE_SIZE; i++) {
-      axisValue[i-1] = axisValue[i];
+  Serial.println("Reset ok");
+  // Request position pos continuously
+  uint8_t pos = 1;
+  while(true) {
+    Serial.println("Request position");
+    transfer(REQUEST_POSITION_READ(pos));
+    if(!waitResponse(REQUEST_POSITION_STATUS,RESPONSE_POSITION_STATUS_OK(pos),5000)) {
+      Serial.println("Position aquire timeout");
+      continue;
     }
-    axisValue[AXIS_VALUE_SIZE-1] = temp;
-  }
-}
-
-uint8_t waitResponse(uint8_t poll, uint8_t expected, unsigned long timeout) {
-  timeout += millis();
-  while(timeout > millis()) {
-    res = transfer(poll);
-    // Serial.println(res);
-    if(res==expected) {
-      return true;
-    } else {
-      delay(50);
+    Serial.println("Position aquired");
+    avp.init();
+    while(!avp.verify()) {
+      res = transfer(REQUEST_POSITION_DIGIT);
+      //Serial.println(res);
+      if(RESPONSE_IS_POSITION_DIGIT(res)) {
+        avp.add(RESPONSE_POSITION_DIGIT(res));
+      }
+      // delay(50);
     }
+    float value = avp.pos();
+    Serial.println(value);
+    delay(2000);
   }
-  return false;
 }
