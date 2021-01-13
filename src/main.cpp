@@ -25,9 +25,9 @@ inline uint8_t transfer(uint8_t data) {
 // holds the transfer response
 volatile uint8_t res;
 
-// polls a reuest waiting for an expected response
-// return the response
-uint8_t waitResponse(uint8_t poll, uint8_t expected, unsigned long timeout) {
+// polls a request waiting for an expected response
+// returns true if the response arrived in time
+bool waitResponse(uint8_t poll, uint8_t expected, unsigned long timeout) {
   timeout += millis();
   while(timeout > millis()) {
     res = transfer(poll);
